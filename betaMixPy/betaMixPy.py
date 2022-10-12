@@ -50,7 +50,7 @@ def shortSummary(P, N, bmax, ahat, bhat, etahat, ppthr, edges, p0):
      "\nNonnull support: [0,", round(bmax, 2),")\nNonnull parameters (a, b, eta): (", round(ahat, 2), ", ", round(bhat, 2), ", ", round(etahat, 2),")\n")
 
 
-def plotFittedBetaMix(z, p0, ahat, bhat, etahat, ppthr, bmax):
+def plotFittedBetaMix(z, p0, ahat, bhat, etahat, ppthr, bmax, file=""):
     """Plot the histogram of z (the sine-square of the angles between pairs of
     predictors and the fitted mixture distribution (log-scale).
 
@@ -60,6 +60,7 @@ def plotFittedBetaMix(z, p0, ahat, bhat, etahat, ppthr, bmax):
     etahat -- the first parameter of the null component (the second is 0.5).
     ppthr -- the threshold for dclaring a strong correlations.
     bmax -- the upper bound of the support of the non-null component.
+    file -- the file name to save to plot ("" means show on the screen)
     """
     x = np.arange(0.001, 1-0.001, 0.0001)
     y0 = betadist.pdf(x, etahat, 0.5)*p0
@@ -71,10 +72,14 @@ def plotFittedBetaMix(z, p0, ahat, bhat, etahat, ppthr, bmax):
     plt.ylim(1e-6, max(y0+y1)*2)
     plt.hist(z, bins=150, range=(0, 1), log=True, density=True, ec='white', color='silver', bottom=1e-6)
     plt.axvline(ppthr, color='r', lw=3, linestyle='dotted')
-    plt.show()
+    if file == "":
+        plt.show()
+    else:
+        plt.savefig(file)
 
 
-def plotBitmapCC(adjM, thr, clusterInfo=pd.DataFrame(), orderByCluster=False, showMinDegree=0):
+
+def plotBitmapCC(adjM, thr, clusterInfo=pd.DataFrame(), orderByCluster=False, showMinDegree=0, file=""):
     """Show the connectivity in the network as a grid (bitmap).
 
     adjM -- the adjacency matrix.
@@ -82,6 +87,7 @@ def plotBitmapCC(adjM, thr, clusterInfo=pd.DataFrame(), orderByCluster=False, sh
     clusterInfo -- output from the graphComponents function.
     orderByCluster -- use the original order of nodes (default) or re-order by clusters.
     showMinDegree -- the minimum number of neighbors a node should have in order to be included in the plot.
+    file -- the output file ("" means show on the screen)
     """
     adjM = abs(adjM)
     if clusterInfo.size > 0:
@@ -97,15 +103,19 @@ def plotBitmapCC(adjM, thr, clusterInfo=pd.DataFrame(), orderByCluster=False, sh
     showNodes = np.where(np.sum(adjM, axis=0) >= showMinDegree)[0]
     adjM = adjM[showNodes,:][:,showNodes]
     plt.imshow(adjM)
-    plt.show()
+    if file == "":
+        plt.show()
+    else:
+        plt.savefig(file)
 
 
-def plotDegCC(degs, ccs, highlightNodes=[]):
+def plotDegCC(degs, ccs, highlightNodes=[], file=""):
     """Plot the degree of each node vs. the correlation coeficient times the degree.
 
     degs -- the node degrees.
     ccs -- the node correlation coeficients.
     highlightNodes -- numeric values of node numbers which should be highlighted.
+    file -- the output file ("" means show on the screen)
     """
     plt.scatter(degs, ccs*degs, c="thistle", s=10)
     for item in highlightNodes:
@@ -115,7 +125,10 @@ def plotDegCC(degs, ccs, highlightNodes=[]):
     plt.grid() # color='r', linestyle='-', linewidth=2
     x = np.linspace(0,max(degs),50)
     plt.plot(x, x)
-    plt.show()
+    if file == "":
+        plt.show()
+    else:
+        plt.savefig(file)
 
 
 def getAdjMat(sineAngleMat, thr):
@@ -230,14 +243,15 @@ def sphericalCaps(A, graphCom):
         return None
     df = pd.DataFrame(columns=['clustNo','Node'])
     for i in range(len(ctrs)):
-        cnum = int(graphCom.loc[ctrs[i],['clustNo']])
-        nodes = np.where(graphCom['clustNo'] == cnum)[0]
-        df2 = pd.DataFrame({'clustNo': [cnum]*len(nodes), 'Node': nodes})
+        inCap = np.where(A[ctrs[i],:] != 0)[0]
+        cnum = int(graphCom.iloc[ctrs[i]]['clustNo'])
+        df2 = pd.DataFrame({'clustNo': [cnum]*len(inCap), 'Node': inCap})
         df = pd.concat([df, df2], sort=False)
+    df.index = range(df.shape[0])
     return df
 
 
-def plotCluster(adjM, clNo, grComp, labels=True, nodecol="#00FF00F0", edgecols="#AEAEAE05"):
+def plotCluster(adjM, clNo, grComp, labels=True, nodecol="#00FF00F0", edgecols="#AEAEAE05", file=""):
     """Plot the network representation of a cluster.
 
     adjM -- the adjacency matrix.
@@ -246,6 +260,7 @@ def plotCluster(adjM, clNo, grComp, labels=True, nodecol="#00FF00F0", edgecols="
     labels -- whether to show the node names or not.
     nodecol -- the colors for the nodes.
     edgecols -- the colors for the edges.
+    file -- the output file ("" means show on the screen)
     """
     if (max(grComp['clustNo']) < clNo) or clNo < 1:
         print("Invalid clustar number. Must be between 1 and " + str(max(grComp['clustNo'])))
@@ -259,7 +274,10 @@ def plotCluster(adjM, clNo, grComp, labels=True, nodecol="#00FF00F0", edgecols="
     df.columns = grComp.index[nodes]
     G = nx.from_pandas_adjacency(abs(df))
     nx.draw(G, with_labels=labels, linewidths=0.5, edge_color=edgecols, node_color=nodecol, style="dashed", alpha=0.5)
-    plt.show()
+    if file == "":
+        plt.show()
+    else:
+        plt.savefig(file)
 
 
 def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.01, maxalpha=1e-4, mxcnt=200, ahat=8, bhat=2,
