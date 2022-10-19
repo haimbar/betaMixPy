@@ -78,7 +78,6 @@ def plotFittedBetaMix(z, p0, ahat, bhat, etahat, ppthr, bmax, file=""):
         plt.savefig(file)
 
 
-
 def plotBitmapCC(adjM, thr, clusterInfo=pd.DataFrame(), orderByCluster=False, showMinDegree=0, file=""):
     """Show the connectivity in the network as a grid (bitmap).
 
@@ -294,7 +293,7 @@ def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.01, maxalpha=1e-4, mxcnt=200, ahat=
     bhat -- The initial value for the second parameter of the nonnull beta distribution (default=2).
     subsamplesize -- If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=0, but for very large P, it's highly recommended to change this value.)
     seed -- The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).
-    ind -- Whether the N samples should be assumed to be independent (default=False).
+    ind -- Whether the N samples should be assumed to be independent (default=True).
     msg -- Whether to print intermediate output messages (default=True).
 
     Returns the following:

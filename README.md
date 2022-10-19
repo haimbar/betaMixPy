@@ -7,3 +7,9 @@ With a large number of predictors, P, the estimation may be slow, so it is recom
 
 If the N samples can be assumed to be indepndent, set the parameter ind to TRUE. If it is set to FALSE (the default), the null set follows a Beta((nu-1)/2, 1/2) distribution and nu (the effective sample size) is estimated from the data in the EM algorithm.
 
+To install the package, run
+'''
+pip3 install betaMixPy
+'''
+
+Additional documentation and examples are available via [GitHub](https://github.com/haimbar/betaMixPy)
