@@ -12,4 +12,4 @@ To install the package, run
 pip3 install betaMixPy
 ```
 
-Additional documentation and examples are available via [GitHub](https://github.com/haimbar/betaMixPy/doc)
+Additional documentation and examples are available in the doc, code and data folders on [GitHub](https://github.com/haimbar/betaMixPy)
