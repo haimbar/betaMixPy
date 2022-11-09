@@ -280,18 +280,18 @@ def plotCluster(adjM, clNo, grComp, labels=True, nodecol="#00FF00F0", edgecols="
 
 
 def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.01, maxalpha=1e-4, mxcnt=200, ahat=8, bhat=2,
-            subsamplesize=0, seed=912469, ind=True, msg=True):
+            subsamplesize=50000, seed=912469, ind=True, msg=True):
     """Fit a two-component beta mixture model to the matrix of all pairwise correlations.
     
-    M -- A matrix with N rows (samples) and P columns (variables).
-    tol -- The convergence threshold for the EM algorithm (default= the maximum of 1e-6 and 1/(P(P-1)/2)).
+    M -- A matrix with P rows (variables) and N columns (observations), which is what numpy's corrcoef expects as input.
+    tol -- The convergence threshold for the EM algorithm (default= the maximum of user's input and 1/(P(P-1)/2)).
     calcAcc -- The calculation accuracy threshold (to avoid values greater than 1 when calling asin) Default=1e-9.
-    ppr -- The null posterior probability threshold (default=0.01).
-    maxalpha -- The probability of Type I error (default=1e-4).
+    ppr -- The null posterior probability threshold (default=0.01). 
+    maxalpha -- The probability of Type I error (default=1e-4). For a large P, 0.01/(P*(P-1)/2) is used.
     mxcnt -- The maximum number of EM iterations (default=200).
     ahat -- The initial value for the first parameter of the nonnull beta distribution (default=8).
     bhat -- The initial value for the second parameter of the nonnull beta distribution (default=2).
-    subsamplesize -- If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data (default=0, but for very large P, it's highly recommended to change this value.)
+    subsamplesize -- If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data  (default=50000).
     seed -- The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).
     ind -- Whether the N samples should be assumed to be independent (default=True).
     msg -- Whether to print intermediate output messages (default=True).
@@ -323,9 +323,9 @@ def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.01, maxalpha=1e-4, mxcnt=200, ahat=
     if len(tooSmall) > 0:
         z_j[tooSmall] = calcAcc
     tooLarge = np.where(z_j > 1-calcAcc)
-    z_jall = z_j
     if len(tooLarge) > 0:
         z_j[tooLarge] = 1-calcAcc
+    z_jall = z_j
     if len(z_j) > subsamplesize and subsamplesize >= 20000:
         rs = RandomState(MT19937(SeedSequence(seed)))
         z_j = np.random.choice(z_jall, subsamplesize)
