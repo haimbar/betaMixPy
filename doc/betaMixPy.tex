@@ -24,7 +24,7 @@
 The betaMixPy package is used to find edges in gene networks using co-expression data. The betaMix method is built on the insightful results of \cite{Frankl1990} who showed that two random vectors are approximately perpendicular with high probability, if the dimension of the space is sufficiently large. The pair-wise correlations between pairs of predictors are equal to the cosine of the angles between the pairs. From these angles we compute $z_j=\sin^2(\theta)$ and fit a mixture of two beta distributions. For pairs of random vectors (the null set) the distribution of $z_j$ is Beta((N-1)/2, 1/2), where N is the sample size. The nonnull set is assumed to follow a Beta(a,b) distribution, and using the EM algorithm we estimate a,b, and the proportion, $p_0$, of the null set of pairs. The betaMix function determines a threshold which will control the error rate given by the user. Any $z_j$ below that threshold corresponds to a significantly correlated pair of predictors (an edge in the graphical model.)
 If the N samples can be assumed to be independent, set the parameter \texttt{ind} to True. If it is set to False, the null set follows a Beta(($\nu$-1)/2, 1/2) distribution and $\nu$ (the effective sample size) is estimated from the data.
 
-The input to the program is a normalized expression matrix, with predictors/genes (which are the nodes in the graph) in the columns, and samples in the rows.
+The input to the program is a normalized expression matrix, with predictors/genes (which are the nodes in the graph) in the rows, and samples in the colums (this is the input that numpy's corrcoef expects).
 
 With a large number of predictors, P, the estimation may be slow, so it is recommended to set the parameter \texttt{subsamplesize} to something smaller than $P(P-1)/2$. The minimum allowed by the program is 20,000. Using anything smaller will cause betaMix to fit the model to all $P(P-1)/2$ pairs. 
 
@@ -42,9 +42,9 @@ The data folder in this repository contains four simulated datasets as csv files
 
 We demonstrate the usage of the package with the first configuration (\texttt{i=0} in the code below).
 \showCode{python}{../code/Simulated.py}[1][12]
-Note that in line 9 we transpose the data matrix, since the betaMix method treats the data as $P$ vectors in an $R^N$. We set the null posterior probability threshold to \texttt{ppr=0.01}, and we set \texttt{subsamplesize=50000} which means that in the fitting process we take a random sample of size 50000 pairwise correlations, rather than using all $P(P-1)/2$ possible pairs. We also set \texttt{ind=True} so that  the N samples are assumed to be independent when we fit the model (in this case, the null distribution is determined exactly by the sample size).
+Note that we transpose the data matrix, since the betaMix method treats the data as $P$ vectors in an $R^N$. We set the null posterior probability threshold to \texttt{ppr=0.01}, and we set \texttt{subsamplesize=50000} which means that in the fitting process we take a random sample of size 50000 pairwise correlations, rather than using all $P(P-1)/2$ possible pairs. We also set \texttt{ind=True} so that  the N samples are assumed to be independent when we fit the model (in this case, the null distribution is determined exactly by the sample size).
 
-\runPython{../code/Simulated.py}{sim}%[cache]
+\runPython{../code/Simulated.py}{sim}[cache]
 After fitting the model, we can obtain a summary of the parameter estimates and a plot of the fitted mixture distribution on top of the actual data histogram. This is done with the following code:
 \showCode{python}{../code/Simulated.py}[13][14]
 
@@ -82,7 +82,7 @@ To visualize a certain cluster, we use the following code, which yields Figure \
 
 
 \section{Case Study -- Tomato Seeds}
-We use the tomato metabolomic data from www.metabolomicsworkbench.org website, Study ID ST000561, introduced in \cite{tomatos2017}. There are two groups -- `dry seeds' and `six-hour imbibed seeds'. Each group has $n=50$, and a total of $P=68$ metabolites. We construct the metabolite network for each group separately. The code for the control (dry seeds) group is given below. The code for the second group is similar (and available in the GitHub repository.
+We use the tomato metabolomic data from www.metabolomicsworkbench.org website, Study ID ST000561, introduced in \cite{tomatos2017}. There are two groups -- `dry seeds' and `six-hour imbibed seeds'. Each group has $N=50$, and a total of $P=68$ metabolites. We construct the metabolite network for each group separately. The code for the control (dry seeds) group is given below. The code for the second group is similar (and available in the GitHub repository.)
 
 \showCode{python}{../code/Tomatos.py}[1][10]
 \runPython{../code/Tomatos.py}{sim}[cache]
