@@ -41,7 +41,7 @@ def etafun(eta, z, m0):
     """
     if(sum(m0) < 1e-10):
         return 1
-    return (psi(eta) - psi(eta+0.5) - sum(m0*np.log(z))/sum(m0))
+    return (-sum(m0)*(psi(eta) - psi(eta+0.5)) + sum(m0*np.log(z)))
 
 
 def shortSummary(P, N, bmax, ahat, bhat, etahat, ppthr, edges, p0):
@@ -279,15 +279,15 @@ def plotCluster(adjM, clNo, grComp, labels=True, nodecol="#00FF00F0", edgecols="
         plt.savefig(file)
 
 
-def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.01, maxalpha=1e-4, mxcnt=200, ahat=8, bhat=2,
+def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.8, maxalpha=1e-4, mxcnt=200, ahat=8, bhat=2,
             subsamplesize=50000, seed=912469, ind=True, msg=True):
     """Fit a two-component beta mixture model to the matrix of all pairwise correlations.
     
     M -- A matrix with P rows (variables) and N columns (observations), which is what numpy's corrcoef expects as input.
     tol -- The convergence threshold for the EM algorithm (default= the maximum of user's input and 1/(P(P-1)/2)).
     calcAcc -- The calculation accuracy threshold (to avoid values greater than 1 when calling asin) Default=1e-9.
-    ppr -- The null posterior probability threshold (default=0.01). 
-    maxalpha -- The probability of Type I error (default=1e-4). For a large P, 0.01/(P*(P-1)/2) is used.
+    ppr -- The null posterior probability threshold (default=0.8). 
+    maxalpha -- The probability of Type I error (default=1e-4). For a large P, a smaller value should be used.
     mxcnt -- The maximum number of EM iterations (default=200).
     ahat -- The initial value for the first parameter of the nonnull beta distribution (default=8).
     bhat -- The initial value for the second parameter of the nonnull beta distribution (default=2).
@@ -310,7 +310,6 @@ def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.01, maxalpha=1e-4, mxcnt=200, ahat=
     bmax -- The estimated right-hand side of the support of the non-null component.
     """
     P, N = M.shape
-    maxalpha = min(maxalpha, 0.01/(P*(P-1)/2))
     etahat = (N-1)/2
     corM = np.corrcoef(M)
     nas = np.where(np.isnan(corM))
@@ -345,8 +344,11 @@ def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.01, maxalpha=1e-4, mxcnt=200, ahat=
         cnt = cnt+1
         p0 = p0new
         if ind == False:
-            etahat = (root(etafun, x0=[(N-1)/2], args=(z_j, m0)).x)[0]
-        bmax = z_j[min(np.where(z_j > betadist.ppf(100/len(z_j), etahat, 0.5))[0])]
+            etahat = min((N-1)/2, (root(etafun, x0=[etahat], args=(z_j, m0)).x)[0])
+        if maxalpha <= 1-p0:
+            bmax = betadist.ppf(1-maxalpha/(1-p0), ahat, bhat)
+        else:
+            bmax = 1
         inNonNullSupport = np.where(z_j < bmax)
         outNonNullSupport = np.where(z_j >= bmax)
         ahat, bhat = least_squares(MLEfun, (ahat, bhat), args=(z_j[inNonNullSupport]/bmax, m0[inNonNullSupport]), bounds=([0.1, 0.1], [1000, 1000])).x
@@ -363,11 +365,12 @@ def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.01, maxalpha=1e-4, mxcnt=200, ahat=
     p1f1 = np.zeros(len(p0f0))
     p1f1[inNonNullSupport] = (1-p0)*betadist.pdf(z_j[inNonNullSupport], ahat, bhat, scale=bmax)
     m0 = p0f0/(p0f0+p1f1)
+    m0.sort()
     p0 = stat.mean(m0)
     ppthr = betadist.ppf(maxalpha, etahat, 0.5)
-    critPP = np.where(m0 > ppr)[0]
+    critPP = np.where(m0 < ppr)[0]
     if len(critPP) > 0:
-        ppthr = max(min(z_j[critPP]), ppthr)
+        ppthr = max(z_j[critPP])#, ppthr)
     nonnull = np.where(z_j < ppthr)[0]
     edges = len(nonnull)
     return sineAngleMat, z_j, m0, p0, ahat, bhat, etahat, ppthr, P, edges, bmax
