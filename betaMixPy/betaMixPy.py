@@ -1,5 +1,6 @@
 """
-A Python package to find strong correlations among P variables, each with N observations.
+A Python package to find strong correlations among P variables, 
+each with N observations.
 """
 import math
 import statistics as stat
@@ -16,8 +17,8 @@ from scipy.sparse import diags
 
 
 def MLEfun(params, *args):
-    """The log-likelihood function of the beta-mixture distrubtion, used to obtain
-    the maximum likelihood estimates of the non-null component (a, b).
+    """The log-likelihood function of the beta-mixture distrubtion, used to
+    obtain the maximum likelihood estimates of the non-null component (a, b).
 
     params -- the beta distribution parameters to be estimated.
     args -- z: the sine-squared of the angle between pairs of vectors; 
@@ -28,14 +29,17 @@ def MLEfun(params, *args):
     sm = sum(1-m0)
     if(sm < 1e-10):
         return(1, 1)
-    return np.array(sm*(psi(a)-psi(a+b))-sum((1-m0)*np.log(z)), sm*(psi(b)-psi(a+b))-sum((1-m0)*np.log(1-z)))
+    return np.array(sm*(psi(a)-psi(a+b))-sum((1-m0)*np.log(z)),\
+        sm*(psi(b)-psi(a+b))-sum((1-m0)*np.log(1-z)))
 
 
 def etafun(eta, z, m0):
-    """The log-likelihood function of the null component of beta-mixture distrubtion
-    when the parameter eta is not assumed to be known and equal to (N-1)/2.
+    """The log-likelihood function of the null component of beta-mixture 
+    distrubtion when the parameter eta is not assumed to be known and 
+    equal to (N-1)/2.
 
-    eta -- the unknown parameter of the beta distribution (the other one is equal to 0.5).
+    eta -- the unknown parameter of the beta distribution (the other one
+        is equal to 0.5).
     z -- the sine-squared of the angle between pairs of vectors.
     m0 -- the posterior null probability of each pair.
     """
@@ -45,9 +49,14 @@ def etafun(eta, z, m0):
 
 
 def shortSummary(P, N, bmax, ahat, bhat, etahat, ppthr, edges, p0):
-    print("No. Nodes:", P, "\nPossible no. edges:", int(P*(P-1)/2), "\nNo. edges detected =", edges,
-    "\nDetection threshold:", round(ppthr, 2), "\nPr(null):", round(p0, 4),
-     "\nNonnull support: [0,", round(bmax, 2),")\nNonnull parameters (a, b, eta): (", round(ahat, 2), ", ", round(bhat, 2), ", ", round(etahat, 2),")\n")
+    print("Sample size:", N, "No. Nodes:", P,\
+            "\nPossible no. edges:", int(P*(P-1)/2),\
+            "\nNo. edges detected =", edges,\
+            "\nDetection threshold:", round(ppthr, 2),\
+            "\nPr(null):", round(p0, 4),\
+            "\nNonnull support: [0,", round(bmax, 2),\
+            ")\nNonnull parameters (a, b, eta): (", round(ahat, 2),\
+            ", ", round(bhat, 2), ", ", round(etahat, 2),")\n")
 
 
 def plotFittedBetaMix(z, p0, ahat, bhat, etahat, ppthr, bmax, file=""):
@@ -279,20 +288,22 @@ def plotCluster(adjM, clNo, grComp, labels=True, nodecol="#00FF00F0", edgecols="
         plt.savefig(file)
 
 
-def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.8, maxalpha=1e-4, mxcnt=200, ahat=8, bhat=2,
-            subsamplesize=50000, seed=912469, ind=True, msg=True):
+def betaMix(M, tol=1e-4, calcAcc=1e-9, ppr=0.05, maxalpha=1e-4,\
+    mxcnt=200, ahat=8, bhat=3, subsamplesize=50000, seed=912469,\
+    bmax=0.999, ind=True, msg=True):
     """Fit a two-component beta mixture model to the matrix of all pairwise correlations.
     
     M -- A matrix with P rows (variables) and N columns (observations), which is what numpy's corrcoef expects as input.
-    tol -- The convergence threshold for the EM algorithm (default= the maximum of user's input and 1/(P(P-1)/2)).
+    tol -- The convergence threshold for the EM algorithm (default=1e-4, but taken to be the maximum of user's input and 1/(P(P-1)/2)).
     calcAcc -- The calculation accuracy threshold (to avoid values greater than 1 when calling asin) Default=1e-9.
-    ppr -- The null posterior probability threshold (default=0.8). 
+    ppr -- The null posterior probability threshold (default=0.05). 
     maxalpha -- The probability of Type I error (default=1e-4). For a large P, a smaller value should be used.
     mxcnt -- The maximum number of EM iterations (default=200).
     ahat -- The initial value for the first parameter of the nonnull beta distribution (default=8).
-    bhat -- The initial value for the second parameter of the nonnull beta distribution (default=2).
+    bhat -- The initial value for the second parameter of the nonnull beta distribution (default=3).
     subsamplesize -- If greater than 20000, take a random sample of size subsamplesize to fit the model. Otherwise, use all the data  (default=50000).
     seed -- The random seed to use if selecting a subset with the subsamplesize parameter (default=912469).
+    bmax -- The RHS of the support of the non-null component (default=0.999).
     ind -- Whether the N samples should be assumed to be independent (default=True).
     msg -- Whether to print intermediate output messages (default=True).
 
@@ -307,7 +318,8 @@ def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.8, maxalpha=1e-4, mxcnt=200, ahat=8
     ppthr -- The estimated posterior probability threshold, under which all the z_j correspond to nonnull edges.
     P -- The number of vectors.
     edges -- The number of edges detected in the graph.
-    bmax -- The estimated right-hand side of the support of the non-null component.
+    bmax -- The user defined right-hand side of the support of the non-null component.
+    N -- The sample size.
     """
     P, N = M.shape
     etahat = (N-1)/2
@@ -318,43 +330,41 @@ def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.8, maxalpha=1e-4, mxcnt=200, ahat=8
         corM[nas] = 0
     sineAngleMat = np.sin(np.arccos(corM))
     z_j = (sineAngleMat[np.triu_indices_from(sineAngleMat, k=1)])**2
-    tooSmall = np.where(z_j < calcAcc)
+    tooSmall = np.where(z_j < calcAcc)[0]
     if len(tooSmall) > 0:
         z_j[tooSmall] = calcAcc
-    tooLarge = np.where(z_j > 1-calcAcc)
+    tooLarge = np.where(z_j > 1-calcAcc)[0]
     if len(tooLarge) > 0:
         z_j[tooLarge] = 1-calcAcc
     z_jall = z_j
     if len(z_j) > subsamplesize and subsamplesize >= 20000:
-        rs = RandomState(MT19937(SeedSequence(seed)))
+        RandomState(MT19937(SeedSequence(seed)))
         z_j = np.random.choice(z_jall, subsamplesize)
     z_j.sort()
     p0 = min(1, len(np.where(z_j > betadist.ppf(0.1, etahat, 0.5)))/(0.9*len(z_j)))
     tol = max(tol, 1/len(z_j))
     if msg:
         print("Fitting the model...\n")
+    inNonNullSupport = np.where(z_j < bmax)[0]
+    outNonNullSupport = np.where(z_j >= bmax)[0]
     p0f0 = p0*betadist.pdf(z_j, etahat, 0.5)
-    p1f1 = (1-p0)*betadist.pdf(z_j, ahat, bhat)
+    p1f1 = (1-p0)*betadist.pdf(z_j, ahat, bhat, scale=bmax)
+    p1f1[outNonNullSupport] = 0
     m0 = p0f0/(p0f0+p1f1)
-    p0new = stat.mean(m0)
-    bmax = 1
-    inNonNullSupport = np.where(z_j <= bmax)
+    p0new = p0 - 10*tol
     cnt = 0
     while np.abs(p0-p0new) > tol and cnt < mxcnt :
         cnt = cnt+1
         p0 = p0new
         if ind == False:
             etahat = min((N-1)/2, (root(etafun, x0=[etahat], args=(z_j, m0)).x)[0])
-        if maxalpha <= 1-p0:
-            bmax = betadist.ppf(1-maxalpha/(1-p0), ahat, bhat)
-        else:
-            bmax = 1
-        inNonNullSupport = np.where(z_j < bmax)
-        outNonNullSupport = np.where(z_j >= bmax)
-        ahat, bhat = least_squares(MLEfun, (ahat, bhat), args=(z_j[inNonNullSupport]/bmax, m0[inNonNullSupport]), bounds=([0.1, 0.1], [1000, 1000])).x
+        ahat, bhat = least_squares(MLEfun, (ahat, bhat),\
+            args=(z_j[inNonNullSupport]/bmax, m0[inNonNullSupport]),\
+            bounds=([0.5, 0.5], [1000, 1000]), method="dogbox").x
         p0f0 = p0*betadist.pdf(z_j, etahat, 0.5)
         p1f1[outNonNullSupport] = 0
-        p1f1[inNonNullSupport] = (1-p0)*betadist.pdf(z_j[inNonNullSupport], ahat, bhat, scale=bmax)
+        p1f1[inNonNullSupport] = (1-p0)*betadist.pdf(z_j[inNonNullSupport],\
+            ahat, bhat, scale=bmax)
         m0 = p0f0/(p0f0+p1f1)
         p0new = stat.mean(m0)
     if len(z_jall) > subsamplesize:
@@ -363,15 +373,16 @@ def betaMix(M, tol=1e-5, calcAcc=1e-9, ppr=0.8, maxalpha=1e-4, mxcnt=200, ahat=8
     inNonNullSupport = np.where(z_j < bmax)[0]
     p0f0 = p0*betadist.pdf(z_j, etahat, 0.5)
     p1f1 = np.zeros(len(p0f0))
-    p1f1[inNonNullSupport] = (1-p0)*betadist.pdf(z_j[inNonNullSupport], ahat, bhat, scale=bmax)
+    p1f1[inNonNullSupport] = (1-p0)*betadist.pdf(z_j[inNonNullSupport],\
+        ahat, bhat, scale=bmax)
     m0 = p0f0/(p0f0+p1f1)
     m0.sort()
     p0 = stat.mean(m0)
     ppthr = betadist.ppf(maxalpha, etahat, 0.5)
     critPP = np.where(m0 < ppr)[0]
     if len(critPP) > 0:
-        ppthr = max(z_j[critPP])#, ppthr)
+        ppthr = max(z_j[critPP])
     nonnull = np.where(z_j < ppthr)[0]
     edges = len(nonnull)
-    return sineAngleMat, z_j, m0, p0, ahat, bhat, etahat, ppthr, P, edges, bmax
+    return sineAngleMat, z_j, m0, p0, ahat, bhat, etahat, ppthr, P, edges, bmax, N
 
