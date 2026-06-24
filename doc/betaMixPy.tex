@@ -41,7 +41,7 @@ The data folder in this repository contains four simulated datasets as csv files
 \item \verb|hub_0200_1000_09_0020.csv|	Similar to the previous item, except that $P=1000$, $N=200$ and the correlation between a central node and all other nodes in a hub is 0.9.
 \end{enumerate}
 
-We demonstrate the usage of the package with the last configuration (\texttt{i=3}, the random-block dataset) in the code below.
+We demonstrate the usage of the package with the first configuration (\texttt{i=0}, the cluster dataset with $N=200$, $P=1000$, 20 clusters of 50 predictors at $\rho=0.3$) in the code below.
 \showCode{python}{../code/Simulated.py}[1][25]
 The CSV file has samples in rows, so no transpose is needed.  We call \texttt{betaMix(M)} with default settings; the null posterior probability threshold defaults to \texttt{ppr=0.05}.  Setting \texttt{ind=True} (the default) means the N samples are assumed independent and the null distribution is determined exactly by the sample size.
 

@@ -16,7 +16,7 @@ files = [
     "rbk_0500_0500_03",
 ]
 
-i = 3
+i = 0
 # Samples in rows, variables in columns (no transpose needed)
 M = pd.read_csv(prefix + files[i] + ".csv", index_col=0)
 print("Data shape (N, P):", M.shape)
@@ -24,7 +24,7 @@ print("Data shape (N, P):", M.shape)
 res = bx.betaMix(M)
 bx.shortSummary(res)
 
-bx.plotFittedBetaMix(res)  # , file="../figures/fitted.pdf"
+bx.plotFittedBetaMix(res, file="../figures/fitted.pdf")
 plt.close("all")
 
 adjM = bx.getAdjMat(res)
@@ -33,6 +33,5 @@ df1  = bx.graphComponents(adjM, minCtr=2)
 bx.plotBitmapCC(adjM, file="../figures/CorMatEst.pdf")
 plt.close("all")
 
-bx.plotCluster(adjM, 1, df1, labels=True, nodecol="#DDFF00")
-# , file="../figures/Cluster.pdf"
+bx.plotCluster(adjM, 1, df1, labels=True, nodecol="#DDFF00", file="../figures/Cluster.pdf")
 plt.close("all")

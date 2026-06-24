@@ -742,11 +742,11 @@ def shortSummary(betaMixObj):
 # Goodness-of-fit diagnostics
 # ---------------------------------------------------------------------------
 
-def assessFit(betaMixObj, yLim=5, qq_purity=0.9):
+def assessFit(betaMixObj, yLim=None, qq_purity=0.9):
     """Produce a 2×2 diagnostic plot and print a goodness-of-fit assessment.
 
     betaMixObj -- dict returned by betaMix().
-    yLim       -- y-axis max for the fitted-mixture panel (default 5).
+    yLim       -- y-axis upper limit for the fitted-mixture panel; None auto-scales.
     qq_purity  -- m0 threshold for 'pure' null/nonnull Q-Q subsets (default 0.9).
 
     Returns a dict with KS test results, mode count, and overall assessment.
@@ -958,28 +958,32 @@ def _kernel_density(x, n=512):
     return {"x": xs, "y": kde(xs)}
 
 
-def _plot_fitted_panel(betaMixObj, yLim=5):
-    """Draw the fitted-mixture histogram on the current axes (no show/save)."""
+def _plot_fitted_panel(betaMixObj, yLim=None):
+    """Draw the fitted-mixture histogram on the current log-scale axes (no show/save).
+
+    Log scale is required because the null Beta(etahat, 0.5) has a massive spike
+    near z_j=1 that dwarfs the non-null component on a linear scale.
+    """
     r = betaMixObj
     z_j, p0, ahat, bhat, etahat, bmax, ppthr = (
         r["z_j"], r["p0"], r["ahat"], r["bhat"], r["etahat"], r["bmax"], r["ppthr"])
-    ccc = np.linspace(0.001, 0.999, 1000)
-    ax  = plt.gca()
-    ax.hist(z_j, bins=300, density=True, color="silver", edgecolor="grey",
-            range=(0, 1), label="_hist")
-    ax.add_patch(mpatches.Rectangle(
-        (0, 0), ppthr, yLim, color="#FF7F50", alpha=0.20, zorder=3))
-    ax.plot(ccc, p0 * betadist.pdf(ccc, etahat, 0.5),
-            color="green", lw=2, ls="--", label="Null")
-    ax.plot(ccc, (1 - p0) * betadist.pdf(ccc / bmax, ahat, bhat) / bmax,
-            color="red", lw=1, label="Non-null")
-    ax.plot(ccc,
-            p0 * betadist.pdf(ccc, etahat, 0.5)
-            + (1 - p0) * betadist.pdf(ccc / bmax, ahat, bhat) / bmax,
-            color="blue", lw=2, label="Mixture")
-    ax.set_ylim(0, yLim)
+    ccc         = np.linspace(0.001, 0.999, 1000)
+    null_dens   = p0 * betadist.pdf(ccc, etahat, 0.5)
+    nonnull_dens = (1.0 - p0) * betadist.pdf(ccc / bmax, ahat, bhat) / bmax
+    mix_dens     = null_dens + nonnull_dens
+    peak = float(np.nanmax(mix_dens))
+    y_top = (yLim if yLim is not None else peak * 2)
+    ax = plt.gca()
+    ax.hist(z_j, bins=150, density=True, color="silver", edgecolor="white",
+            range=(0, 1), log=True, bottom=1e-6)
+    ax.plot(ccc, null_dens,    color="cyan",    lw=3,          label="Null")
+    ax.plot(ccc, nonnull_dens, color="magenta", lw=2,          label="Non-null")
+    ax.plot(ccc, mix_dens,     color="navy",    lw=2, ls="--", label="Mixture")
+    ax.axvline(ppthr, color="red", lw=2, ls="dotted", label=f"Threshold")
     ax.set_xlim(0, 1)
+    ax.set_ylim(1e-6, y_top)
     ax.set_xlabel(r"$z_j = \sin^2(\theta)$")
+    ax.set_ylabel("Density (log scale)")
     ax.legend(fontsize=7)
 
 
@@ -1014,11 +1018,11 @@ def _plot_roc_panel(betaMixObj):
                 tau_youden=tau_y, tau_current=r["ppthr"])
 
 
-def plotFittedBetaMix(betaMixObj, yLim=5, file=""):
-    """Plot the z_j histogram with the fitted mixture overlay and significance region.
+def plotFittedBetaMix(betaMixObj, yLim=None, file=""):
+    """Plot the z_j histogram with the fitted mixture overlay on a log y-axis.
 
     betaMixObj -- dict returned by betaMix().
-    yLim       -- y-axis maximum (default 5).
+    yLim       -- y-axis upper limit; None (default) auto-scales to 2× the mixture peak.
     file       -- output filename; "" means show on screen (default).
     """
     plt.figure(figsize=(8, 5))
