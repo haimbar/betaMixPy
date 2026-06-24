@@ -445,6 +445,171 @@ def sphericalCaps(A):
     return df
 
 
+def greedyBasis(A, strategy="min_degree", labels=None):
+    """Find a maximal independent set (MIS) and derive overlapping communities.
+
+    Repeatedly picks the node with the smallest or largest current degree in the
+    remaining subgraph, adds it to the basis, then removes it and all its active
+    neighbours.  After the basis is found, each node is assigned to every
+    community whose centre it is adjacent to, giving overlapping membership —
+    something graphComponents and sphericalCaps cannot produce.
+
+    strategy="min_degree" (default)
+        Classical greedy MIS: selects the least-connected remaining node first.
+        Produces a sparse, high-coverage basis of mutually non-adjacent
+        representatives.  Used in the StatPapers MRB method as a
+        non-redundant feature basis.
+    strategy="max_degree"
+        Hub-first: selects the most-connected remaining node first.
+        Like sphericalCaps but with a strict non-adjacency guarantee
+        between basis nodes — the most influential hubs without redundancy.
+
+    A        -- adjacency matrix (P×P numpy array, 0/1 or signed).
+    strategy -- "min_degree" (default) or "max_degree".
+    labels   -- optional list/array of P node labels (used as DataFrame index).
+
+    Returns a DataFrame with one row per node and columns:
+      node         -- integer node index (0-based).
+      isBasis      -- True if the node is in the MIS.
+      basisOrder   -- selection order 1, 2, …; 0 for non-basis nodes.
+      degree       -- original node degree in A.
+      cc           -- clustering coefficient.
+      nCovered     -- size of this node's community (basis only; 0 otherwise).
+      nCommunities -- number of communities this node belongs to.
+      communities  -- list of basis-node indices whose community includes this node.
+
+    Key properties guaranteed by construction:
+      * No two basis nodes share an edge (independent set).
+      * Every non-basis node is adjacent to at least one basis node (maximal).
+      * A non-basis node belongs to as many communities as it has basis neighbours
+        (overlapping membership).
+    """
+    if strategy not in ("min_degree", "max_degree"):
+        raise ValueError("greedyBasis: strategy must be 'min_degree' or 'max_degree'")
+
+    A         = np.abs(np.asarray(A, dtype=float))
+    np.fill_diagonal(A, 0.0)
+    P         = A.shape[0]
+    adj_bool  = A > 0                               # (P, P) bool
+    orig_deg  = adj_bool.sum(axis=1).astype(int)
+    CC        = clusteringCoef(A)
+
+    # ── Phase 1: greedy MIS ───────────────────────────────────────────────
+    # Maintain current-subgraph degrees and update them after each removal,
+    # so argmin/argmax always reflects the live subgraph — O(P²) total,
+    # fast enough for typical betaMixPy sizes (P ≤ few thousand).
+    deg       = orig_deg.astype(float).copy()
+    active    = np.ones(P, dtype=bool)
+    is_basis  = np.zeros(P, dtype=bool)
+    basis_ord = np.zeros(P, dtype=int)
+    pick_fn   = np.argmin if strategy == "min_degree" else np.argmax
+
+    order = 0
+    while active.any():
+        active_idx = np.where(active)[0]
+        pick = active_idx[pick_fn(deg[active_idx])]
+
+        order += 1
+        is_basis[pick]  = True
+        basis_ord[pick] = order
+
+        # Nodes to remove: pick itself + its currently active neighbours
+        nbrs_active = np.where(adj_bool[pick] & active)[0]
+        deact_mask  = np.zeros(P, dtype=bool)
+        deact_mask[pick]        = True
+        deact_mask[nbrs_active] = True
+
+        # Update degrees of nodes that will remain active
+        remain_idx = np.where(active & ~deact_mask)[0]
+        deact_idx  = np.where(deact_mask)[0]
+        if len(remain_idx) > 0 and len(deact_idx) > 0:
+            loss = adj_bool[np.ix_(remain_idx, deact_idx)].sum(axis=1)
+            deg[remain_idx] -= loss
+
+        active[deact_mask] = False
+
+    basis_nodes = np.where(is_basis)[0]
+
+    # ── Phase 2: overlapping community assignment ─────────────────────────
+    # Each node belongs to all communities of the basis nodes it is adjacent
+    # to in the ORIGINAL adjacency matrix.  A basis node belongs to its own
+    # community only (since no two basis nodes are adjacent).
+    communities = [[] for _ in range(P)]
+    n_covered   = np.zeros(P, dtype=int)
+
+    for b in basis_nodes:
+        all_nbrs   = np.where(adj_bool[b])[0]
+        n_covered[b] = 1 + len(all_nbrs)          # b covers itself + all adj nodes
+        communities[b].append(int(b))
+        for m in all_nbrs:
+            communities[m].append(int(b))
+
+    n_communities = np.array([len(c) for c in communities], dtype=int)
+
+    df = pd.DataFrame({
+        "node":         np.arange(P),
+        "isBasis":      is_basis,
+        "basisOrder":   basis_ord,
+        "degree":       orig_deg,
+        "cc":           CC,
+        "nCovered":     n_covered,
+        "nCommunities": n_communities,
+        "communities":  communities,
+    })
+
+    if labels is not None:
+        lbl = list(labels)
+        if len(lbl) == P:
+            df.index = lbl
+        else:
+            warnings.warn(
+                f"greedyBasis: len(labels)={len(lbl)} != P={P}; labels ignored"
+            )
+
+    return df
+
+
+def summarizeBasis(basisInfo):
+    """Print and return summary statistics for a greedyBasis result.
+
+    basisInfo -- DataFrame returned by greedyBasis().
+
+    Returns a dict with: n_basis, basis_fraction, mean_community_size,
+    overlap_stats (mean/max nCommunities for non-basis nodes),
+    isolated_nodes.
+    """
+    bi = basisInfo
+    P          = len(bi)
+    n_basis    = int(bi["isBasis"].sum())
+    n_edges    = int(bi["degree"].sum()) // 2
+    n_isolated = int((bi["degree"] == 0).sum())
+    non_basis  = bi[~bi["isBasis"]]
+
+    mean_cov  = float(bi.loc[bi["isBasis"], "nCovered"].mean()) if n_basis > 0 else 0.0
+    max_cov   = int(bi["nCovered"].max())
+    overlap   = non_basis["nCommunities"]
+    mean_ovlp = float(overlap.mean()) if len(overlap) > 0 else 0.0
+    max_ovlp  = int(overlap.max()) if len(overlap) > 0 else 0
+    n_shared  = int((overlap > 1).sum())
+
+    print(f"Nodes: {P}   Edges: {n_edges}   Isolated: {n_isolated}")
+    print(f"Basis size (MIS): {n_basis}  ({100*n_basis/P:.1f}% of nodes)")
+    print(f"Mean community size: {mean_cov:.1f}   Max: {max_cov}")
+    print(f"Non-basis nodes in >1 community: {n_shared} / {len(non_basis)} "
+          f"(mean {mean_ovlp:.2f}, max {max_ovlp})")
+
+    return dict(
+        n_basis=n_basis,
+        basis_fraction=n_basis / P,
+        mean_community_size=mean_cov,
+        max_community_size=max_cov,
+        n_shared_nodes=n_shared,
+        mean_n_communities=mean_ovlp,
+        max_n_communities=max_ovlp,
+        n_isolated=n_isolated,
+    )
+
+
 def summarizeClusters(clustersInfo):
     """Print and return summary statistics for each cluster.
 
