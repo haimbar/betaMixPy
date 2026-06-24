@@ -16,7 +16,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=['betaMixPy'],
-    install_requires=["statistics", "matplotlib", "pandas", "networkx", "numpy", "scipy"],
+    install_requires=["matplotlib", "pandas", "numpy", "scipy"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

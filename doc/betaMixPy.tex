@@ -15,6 +15,7 @@
 % Title Page
 \title{The betaMixPy package}
 \author{Haim Bar}
+\date{June 2026}
 
 
 \begin{document}
@@ -104,6 +105,25 @@ Figure \ref{tomatos2} shows the cluster which contains the GABA metabolite in bo
 \subfloat[\centering Six-hour Imbibed]{\includegraphics[width=.45\linewidth]{../figures/Gaba1.pdf}}
 \caption{The network component containing the GABA metabolite in each group.}\label{tomatos2}
 \end{figure}
+
+
+\subsection{Overlapping Communities via \texttt{greedyBasis}}
+
+Unlike \texttt{graphComponents} (which assigns each node to exactly one cluster) and \texttt{sphericalCaps} (which builds overlapping hub-and-spoke communities), \texttt{greedyBasis} finds a \emph{maximal independent set} (MIS) of the network.  A MIS is a subset of nodes such that (i) no two members share an edge (\emph{independence}) and (ii) every node outside the MIS is adjacent to at least one member (\emph{maximality}).  After finding this basis, each node is assigned to every community whose centre it is adjacent to in the original graph, yielding overlapping membership.
+
+The following code fits betaMix to the Dry Seeds group and then applies \texttt{greedyBasis} with both strategies to the resulting adjacency matrix.
+
+\showCode{python}{../code/greedyBasisDemo.py}[13][24]
+
+\runPython{../code/greedyBasisDemo.py}{greedybasis}[cache]
+
+The output for the Dry Seeds network ($P=68$ metabolites, 203 edges) is as follows.
+
+\includeOutput{greedybasis}[vbox]
+
+With \texttt{strategy="min\_degree"}, the algorithm selects 29 basis metabolites (43\% of nodes), forming communities of mean size 3.9.  Because non-basis metabolites can be adjacent to several basis nodes simultaneously, 27 of the 39 non-basis metabolites belong to more than one community.  For example, Glyceric acid (degree 15) appears in 6 communities, revealing its role as a broad connector in the metabolite network.
+
+With \texttt{strategy="max\_degree"}, only 20 basis nodes are selected.  The hubs are placed in the basis first, producing larger communities (mean 4.3 nodes) but less overlap (maximum 3 communities per non-basis node).  This strategy is analogous to \texttt{sphericalCaps} but guarantees that no two basis nodes are directly connected.
 
 
 \section{Model Diagnostics}

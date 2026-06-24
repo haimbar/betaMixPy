@@ -6,7 +6,6 @@ Convention: M is an N×P matrix (N rows = samples, P columns = variables),
 matching the R betaMix package convention.
 """
 import warnings
-import statistics as stat
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -296,7 +295,9 @@ def getAdjMat(res, ppthr=None, signed=False, nodes=None):
         selected = np.sort(np.union1d(nodes, np.where(nbr_mask)[0]))
         corM = corM[np.ix_(selected, selected)]
 
-    A = (1.0 - corM ** 2) < ppthr
+    # Use <= so the boundary pair (z_j == ppthr) is included, matching the
+    # edge count reported by betaMix() which also uses <=.
+    A = (1.0 - corM ** 2) <= ppthr
     if signed:
         A = A.astype(float)
         neg = (corM < 0) & (A > 0)
@@ -453,6 +454,8 @@ def greedyBasis(A, strategy="min_degree", labels=None):
     neighbours.  After the basis is found, each node is assigned to every
     community whose centre it is adjacent to, giving overlapping membership —
     something graphComponents and sphericalCaps cannot produce.
+
+    R port plan: doc/port_plan_greedyBasis.md
 
     strategy="min_degree" (default)
         Classical greedy MIS: selects the least-connected remaining node first.

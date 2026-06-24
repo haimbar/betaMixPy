@@ -1,5 +1,40 @@
 # betaMixPy — Changelog
 
+## 0.2.1 (2026-06-23)
+
+### Bug fixes
+
+- `getAdjMat`: changed edge condition from `< ppthr` to `<= ppthr` so the
+  adjacency matrix edge count matches the value reported by `betaMix()`.
+  (`betaMix` sets `ppthr` as the z_j value of the boundary pair itself, so
+  that pair must be included in the adjacency matrix.)
+
+### Removed unused dependencies
+
+- Removed `statistics` (stdlib module) from the module-level imports — it
+  was imported but never used.
+- Removed `networkx` from `install_requires` in `setup.py` — the package has
+  not depended on networkx since the pure-numpy graph analysis functions
+  replaced it.
+
+### Tests
+
+- Added `tests/test_betaMixPy.py` (69 tests, all passing): covers `betaMix`,
+  `getAdjMat`, `clusteringCoef`, `graphComponents`, `sphericalCaps`,
+  `greedyBasis` (independence + maximality assertions), `summarizeBasis`,
+  `shortestPathDistance`, `collapsedGraph`, `summarizeClusters`, and a module
+  import smoke test.
+
+### Documentation
+
+- `doc/betaMixPy.tex`: added explicit `\date{June 2026}` and a new
+  `greedyBasis` subsection in the Case Study chapter with code listing and
+  cached output from the DrySeeds dataset.
+- `doc/port_plan_greedyBasis.md`: step-by-step R porting guide for
+  `greedyBasis()` and `summarizeBasis()`, with full code translations and test
+  expectations.
+- Added `code/greedyBasisDemo.py` demonstrating both strategies on DrySeeds.
+
 ## 0.2.0 (2026-06-23)
 
 ### Breaking changes

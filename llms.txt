@@ -160,7 +160,9 @@ bx.plotBitmapCC(adjMat, clust)
 | signed | False | If True, -1 (negative r), 0 (no edge), +1 (positive r) |
 | nodes | None | List of node indices for a submatrix |
 
-Returns a P×P numpy array (or submatrix when nodes is given).
+Returns a P×P numpy array (or submatrix when nodes is given).  Edge (i,j) is
+set when z_ij = 1 − r_ij² ≤ ppthr (note: inclusive; the boundary pair is
+included to match the edge count reported by `betaMix()`).
 
 ### `assessFit(res)` — goodness-of-fit diagnostics
 
