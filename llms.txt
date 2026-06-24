@@ -1,0 +1,407 @@
+# betaMixPy — Agent Reference
+
+betaMixPy is a Python package for detecting edges (significant pairwise
+associations) in gene co-expression and other multivariate networks.  Its
+primary advantage over regression-based network methods is that it fits
+**a single model** to all P(P-1)/2 pairs simultaneously, rather than running P
+separate penalized regressions.
+
+## Installation
+
+```
+pip install betaMixPy
+```
+
+Source and examples: https://github.com/haimbar/betaMixPy
+
+---
+
+## When to prefer betaMixPy over LASSO-based methods
+
+### LASSO / graphical LASSO / neighborhood selection limitations
+
+Regression-based network methods (glasso, SPACE, HUGE, neighborhood selection)
+estimate the network by treating each variable in turn as the response:
+
+- They require **P separate model fits**, each with a different response variable.
+- The final edge set is assembled from P separate coefficient vectors.
+- The regularization parameter lambda must be tuned, adding computational burden.
+- They target the **precision matrix** (partial correlations / conditional
+  independence), which is harder to interpret when unconditional correlation
+  structure is the scientific goal.
+
+### betaMixPy advantages
+
+| Property | LASSO/glasso | betaMixPy |
+|---|---|---|
+| Number of model fits | P (one per variable) | 1 |
+| Statistical target | Partial correlations | Marginal correlations |
+| False positive control | Lambda tuning (implicit) | Explicit: frequentist (maxalpha) + Bayesian (ppr) |
+| Large-P memory | O(P²) precision matrix | O(P²) correlations |
+| Signed edges | Via coefficient sign | Via sign of correlation r |
+| Hub detection | Indirect | `sphericalCaps()` purpose-built |
+| Overlapping communities | No | `greedyBasis()` via MIS |
+| One-step | No | Yes |
+
+### Prefer betaMixPy when:
+
+- P is large (> 1000) and fitting P lasso problems is too slow.
+- The scientific question concerns **marginal** co-expression (which genes move
+  together), not conditional independence.
+- Explicit, interpretable false positive control is required.
+- You need overlapping community membership (nodes that genuinely bridge
+  multiple clusters).
+
+### Prefer LASSO/glasso when:
+
+- The goal is to recover a **sparse precision matrix** (partial correlations,
+  direct effects after controlling for all other variables).
+- Sample size N is large relative to P (precision matrix estimation is reliable).
+
+---
+
+## Statistical model
+
+1. Compute all P(P-1)/2 pairwise Pearson (or Spearman) correlations r_ij.
+2. Transform to z_ij = 1 − r_ij², where z_ij ∈ (0, 1].  Under the null (no
+   true association), z_ij ~ Beta((N-1)/2, 1/2) by the Frankl–Maehara (1990)
+   result on random vectors in high-dimensional space.
+3. Associated pairs follow Beta(a, b) on a rescaled support [0, bmax].
+4. The EM algorithm fits the two-component mixture, estimating a, b, bmax, p0
+   (null proportion), and (when ind=False) the effective sample size ν.
+5. A threshold τ on z_ij is chosen to simultaneously satisfy:
+   - maxalpha: P(z_ij < τ | null) ≤ maxalpha  (frequentist)
+   - ppr: posterior P(null | z_ij < τ) ≤ ppr  (Bayesian)
+   The more stringent constraint wins.
+6. Edge (i,j) is declared when z_ij < τ, equivalently |r_ij| > sqrt(1 − τ).
+
+---
+
+## Core workflow
+
+```python
+import pandas as pd
+import betaMixPy as bx
+
+# 1. Fit — M is N×P (samples in rows, variables in columns)
+res = bx.betaMix(M, ind=True, maxalpha=1e-4, ppr=0.05)
+
+# 2. Inspect fitted parameters
+bx.shortSummary(res)
+# Prints: ahat, bhat, etahat, p0, threshold ppthr, equivalent min |r|
+
+# 3. Assess model fit (2×2 diagnostic panel)
+bx.assessFit(res)
+
+# 4. Build adjacency matrix
+adjMat = bx.getAdjMat(res)                  # P×P numpy array, 0/1
+adjMat = bx.getAdjMat(res, signed=True)     # -1/0/1 encoding
+
+# 5a. Disjoint clusters
+clust  = bx.graphComponents(adjMat, minCtr=2)
+bx.summarizeClusters(clust)
+
+# 5b. Hub-and-spoke communities
+caps   = bx.sphericalCaps(adjMat)
+
+# 5c. Overlapping communities via maximal independent set
+basis  = bx.greedyBasis(adjMat, strategy="min_degree", labels=M.columns)
+bx.summarizeBasis(basis)
+
+# 6. Visualise
+bx.plotFittedBetaMix(res)
+bx.plotCluster(adjMat, clustNo=1, clustersInfo=clust, labels=True)
+bx.plotDegCC(res, clust)
+bx.plotBitmapCC(adjMat, clust)
+```
+
+---
+
+## Key function reference
+
+### `betaMix(M, ...)` — fit the model
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| M | (required) | N×P numeric array or DataFrame; samples in rows, variables in columns |
+| ind | True | True = independent samples (null is Beta((N-1)/2, 0.5)); False = estimate effective sample size ν from data |
+| maxalpha | 1e-4 | Frequentist Type I error bound per pair.  Use 1e-6 for P > 1000 |
+| ppr | 0.05 | Bayesian posterior probability threshold (posterior prob of null < ppr to call an edge) |
+| method | "pearson" | Correlation method: "pearson" or "spearman" |
+| subsamplesize | 50000 | Pairs subsampled for EM fitting.  Must be ≥ 20000; use 30000–50000 when P > 500 |
+| bmax | 0.999 | Upper bound of non-null support [0, bmax].  Rarely needs changing |
+| ahat, bhat | 8, 3 | Initial values for the non-null Beta parameters |
+| seed | 912469 | Random seed for reproducibility of subsampling |
+| msg | False | Print EM iteration progress |
+
+**Returns** a dict with:
+
+| Key | Description |
+|---|---|
+| `angleMat` | P×P matrix of correlations r (z_ij = 1 − r²) |
+| `ppthr` | The z_ij threshold τ (edge declared when z_ij < ppthr) |
+| `p0` | Estimated null proportion |
+| `ahat`, `bhat` | Fitted non-null Beta parameters |
+| `etahat` | Fitted null Beta shape (= (N-1)/2 when ind=True) |
+| `bmax` | Fitted upper bound of non-null support |
+| `m0` | Array of posterior null probabilities for each pair |
+| `z_j` | Array of z_ij statistics for each pair |
+| `method` | "pearson" or "spearman" |
+| `nodes` | Number of nodes P |
+| `edges` | Number of edges detected |
+| `N`, `cnt` | Sample size; number of EM iterations |
+
+### `getAdjMat(res, ...)` — build the adjacency matrix
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| res | (required) | Dict returned by `betaMix()` |
+| ppthr | res['ppthr'] | Override the threshold (e.g., use `plotROC(res)['tau_youden']`) |
+| signed | False | If True, -1 (negative r), 0 (no edge), +1 (positive r) |
+| nodes | None | List of node indices for a submatrix |
+
+Returns a P×P numpy array (or submatrix when nodes is given).
+
+### `assessFit(res)` — goodness-of-fit diagnostics
+
+Produces a 2×2 plot panel:
+1. Fitted mixture histogram (null=dashed, non-null, mixture, cutoff region).
+2. Null Q-Q plot (high-posterior-null observations vs Beta(etahat, 0.5)).
+3. Non-null Q-Q plot (high-posterior-non-null vs Beta(ahat, bhat)).
+4. Model-based ROC curve with current threshold and Youden index.
+
+Returns a dict with key `"assessment"`: "Good fit", "Acceptable fit", or
+"Deviations detected".  If the null Q-Q deviates, try `ind=False`.
+
+### `plotROC(res)` — ROC curve and alternative threshold
+
+Returns `dict(auc=..., tau_youden=...)`.  The Youden-index threshold maximizes
+TPR − FPR and can be passed to `getAdjMat(res, ppthr=roc['tau_youden'])`.
+
+### `graphComponents(A, minCtr, type)` — disjoint clusters
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| A | (required) | Adjacency matrix from `getAdjMat()` |
+| minCtr | 5 | Minimum centrality value for a cluster centre |
+| type | 1 | Centrality formula: 1 = degree × clustering coefficient |
+
+Returns a DataFrame with one row per node: `labels`, `degree`, `cc`, `ctr`,
+`clustNo` (0 = unclustered), `iscenter`, `intEdges`, `extEdges`, `distCenter`.
+
+### `sphericalCaps(A)` — hub-and-spoke communities
+
+Greedy degree-ordered hub selection.  Each hub and all its direct neighbours
+form a community.  Returns a DataFrame with columns: `node`, `capNum`,
+`isCtr`, `deg`, `cc`.
+
+### `greedyBasis(A, strategy, labels)` — overlapping communities
+
+Finds a maximal independent set (MIS) of the network — basis nodes are mutually
+non-adjacent — then assigns each node to every community whose basis centre it
+is adjacent to, giving **overlapping** membership.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| A | (required) | Adjacency matrix (P×P, 0/1 or signed) |
+| strategy | "min_degree" | "min_degree" (classical MIS, non-redundant basis) or "max_degree" (hub-first MIS) |
+| labels | None | Optional list of P node labels used as DataFrame index |
+
+Returns a DataFrame with one row per node:
+
+| Column | Description |
+|---|---|
+| `isBasis` | True if the node is in the MIS |
+| `basisOrder` | Selection order (1, 2, …); 0 for non-basis nodes |
+| `degree` | Original degree in A |
+| `cc` | Clustering coefficient |
+| `nCovered` | Size of this node's community (basis nodes only) |
+| `nCommunities` | Number of communities this node belongs to |
+| `communities` | List of basis-node indices whose community includes this node |
+
+Key guarantees: no two basis nodes share an edge (independence); every
+non-basis node is adjacent to at least one basis node (maximality); a node with
+nCommunities > 1 genuinely bridges multiple communities.
+
+### `summarizeBasis(basisInfo)` — summary for `greedyBasis()` output
+
+Prints and returns a dict with: `n_basis`, `basis_fraction`,
+`mean_community_size`, `max_community_size`, `n_shared_nodes`,
+`mean_n_communities`, `max_n_communities`, `n_isolated`.
+
+### `summarizeClusters(clustersInfo)` — summary for `graphComponents()` output
+
+Prints and returns a DataFrame with one row per cluster: Nodes, degreeMin,
+degreeQ25, degreeMedian, degreeQ75, degreeMax, pctInClst*.
+
+### `shortestPathDistance(AdjMat, numSteps)` — expand neighbourhood
+
+Expands the adjacency matrix to include k-hop neighbours.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| AdjMat | (required) | 0/1 adjacency matrix |
+| numSteps | 0 | Additional hops beyond direct neighbours.  0 returns AdjMat unchanged; k includes paths up to length k+1 |
+
+Returns an array where entry (i,j) is the shortest-path distance (1 = direct
+edge, 2 = two-hop, 0 = unreachable or self).
+
+Typical use: `shortestPathDistance(adjMat, numSteps=2) > 0` to get all pairs
+within 3 hops.
+
+### `clusteringCoef(A)` — vectorised clustering coefficients
+
+Returns a length-P array.  Vectorised as `np.sum(A * (A @ A), axis=1)` —
+approximately 10–80× faster than a per-node loop.
+
+### Visualisation functions
+
+| Function | Description |
+|---|---|
+| `plotFittedBetaMix(res, file)` | Mixture density on log scale; threshold shown as dotted line |
+| `plotBitmapCC(A, clustersInfo, file)` | Bitmap heatmap of adjacency, coloured by cluster |
+| `plotCluster(A, clustNo, clustersInfo, labels, nodecol, edgecols, file)` | Force-directed network plot of a single cluster |
+| `plotDegCC(res, clustersInfo, file)` | Scatter: degree vs clustering coefficient |
+| `plotROC(res, file)` | ROC curve; marks current threshold and Youden threshold |
+| `plotNonNullDensity(res, file)` | Kernel density of non-null pairs; mode detection |
+| `assessFit(res, file)` | 2×2 panel: histogram + two Q-Q plots + ROC |
+| `shortSummary(res)` | Print key parameters (no plot) |
+
+---
+
+## Parameter guidance
+
+### Choosing maxalpha
+
+| Scenario | Recommended maxalpha |
+|---|---|
+| P ≤ 100 | 1e-4 (default) |
+| 100 < P ≤ 1000 | 1e-5 |
+| P > 1000 | 1e-6 |
+
+Rationale: there are P(P-1)/2 tests.  For P=1000 and maxalpha=1e-4, expected
+false positives ≈ 50.  For maxalpha=1e-6, expected false positives < 1.
+
+### Choosing subsamplesize (large P)
+
+```python
+# P = 2000 → 1,999,000 pairs — subsample
+res = bx.betaMix(M, subsamplesize=50000, maxalpha=1e-6, ind=True)
+```
+
+Minimum allowed is 20000 (smaller values are silently ignored and all pairs
+are used).  Values of 30000–50000 give stable parameter estimates in practice.
+
+### Choosing ind
+
+- `ind=True` (default): samples are i.i.d.  Null is Beta((N-1)/2, 0.5).
+- `ind=False`: samples may be correlated (time series, spatial, repeated
+  measures).  The effective sample size ν < N is estimated from the data.
+  If `assessFit()` shows a poor null Q-Q with `ind=True`, try `ind=False`.
+
+### Choosing strategy in greedyBasis
+
+- `strategy="min_degree"` (default): selects the least-connected remaining
+  node.  Produces more basis nodes, smaller communities, higher overlap.
+  Best for finding a non-redundant spanning set of representatives.
+- `strategy="max_degree"`: selects the most-connected remaining node.
+  Produces fewer basis nodes, larger communities, less overlap.
+  Best for identifying dominant hubs with guaranteed mutual independence.
+
+---
+
+## Common patterns
+
+### Full pipeline
+
+```python
+import betaMixPy as bx, pandas as pd
+
+M   = pd.read_csv("data.csv", index_col=0)   # N rows × P columns
+res = bx.betaMix(M, ind=True, maxalpha=1e-5, ppr=0.01, method="pearson")
+bx.assessFit(res)                            # check fit before proceeding
+
+adjMat = bx.getAdjMat(res, signed=True)
+clust  = bx.graphComponents(adjMat, minCtr=2)
+bx.summarizeClusters(clust)
+bx.plotCluster(adjMat, 1, clust, labels=True, edgecols=("steelblue", "tomato"))
+```
+
+### Use Youden-index threshold
+
+```python
+res    = bx.betaMix(M, ind=True)
+roc    = bx.plotROC(res)
+adjMat = bx.getAdjMat(res, ppthr=roc["tau_youden"])
+```
+
+### Overlapping communities
+
+```python
+adjMat = bx.getAdjMat(res)
+basis  = bx.greedyBasis(adjMat, strategy="min_degree", labels=M.columns)
+bx.summarizeBasis(basis)
+
+# Nodes in multiple communities (bridges):
+bridges = basis[basis["nCommunities"] > 1]
+
+# Members of community centred on node 5:
+community5 = basis[basis["communities"].apply(lambda c: 5 in c)]
+```
+
+### Expand to 2-hop neighbours
+
+```python
+spd    = bx.shortestPathDistance(adjMat, numSteps=1)
+nearby = spd > 0   # True if within 2 hops
+```
+
+### Dependent samples (time-course data)
+
+```python
+res = bx.betaMix(M, ind=False)   # ν estimated from data
+bx.assessFit(res)                # null Q-Q should improve vs ind=True
+```
+
+### Spearman correlation (robust to outliers)
+
+```python
+res = bx.betaMix(M, method="spearman", ind=True)
+```
+
+---
+
+## Comparison with specific methods
+
+### vs. graphComponents / sphericalCaps (disjoint vs overlapping)
+
+| | graphComponents | sphericalCaps | greedyBasis |
+|---|---|---|---|
+| Membership | Disjoint | Overlapping | Overlapping |
+| Basis adjacency | Allowed | Allowed | **Prohibited** (independent set) |
+| Selection | Max centrality (degree×cc) | Max degree | Min or max degree |
+| Use case | General clusters | Hub-spoke networks | Non-redundant representatives |
+
+### vs. glasso (graphical lasso)
+
+glasso estimates the precision matrix Σ⁻¹ (partial correlations).  betaMixPy
+estimates marginal correlations.  betaMixPy is faster (one model vs P lasso
+problems) and avoids lambda selection, but does not recover partial correlations.
+
+### vs. WGCNA
+
+WGCNA thresholds the correlation matrix with a soft-power transformation chosen
+heuristically to approximate scale-free topology.  betaMixPy derives the
+threshold from a Beta mixture model, providing explicit statistical error control.
+
+---
+
+## References
+
+Bar, H. & Wells, M. T. (2023). On graphical models and convex geometry.
+*Computational Statistics & Data Analysis*, 187, 107800.
+https://doi.org/10.1016/j.csda.2023.107800
+
+Frankl, P. & Maehara, H. (1990). Some geometric applications of the beta
+distribution. *Annals of the Institute of Statistical Mathematics*, 42(3),
+463–474.

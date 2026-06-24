@@ -24,7 +24,7 @@
 The betaMixPy package is used to find edges in gene networks using co-expression data. The betaMix method is built on the insightful results of \cite{Frankl1990} who showed that two random vectors are approximately perpendicular with high probability, if the dimension of the space is sufficiently large. The pair-wise correlations between pairs of predictors are equal to the cosine of the angles between the pairs. From these angles we compute $z_j=\sin^2(\theta)$ and fit a mixture of two beta distributions. For pairs of random vectors (the null set) the distribution of $z_j$ is Beta((N-1)/2, 1/2), where N is the sample size. The nonnull set is assumed to follow a Beta(a,b) distribution, and using the EM algorithm we estimate a,b, and the proportion, $p_0$, of the null set of pairs. The betaMix function determines a threshold which will control the error rate given by the user. Any $z_j$ below that threshold corresponds to a significantly correlated pair of predictors (an edge in the graphical model.)
 If the N samples can be assumed to be independent, set the parameter \texttt{ind} to True. If it is set to False, the null set follows a Beta(($\nu$-1)/2, 1/2) distribution and $\nu$ (the effective sample size) is estimated from the data.
 
-The input to the program is a normalized expression matrix, with predictors/genes (which are the nodes in the graph) in the rows, and samples in the colums (this is the input that numpy's corrcoef expects).
+The input to the program is a normalized expression matrix with \textbf{samples in rows and variables (genes/predictors) in columns} --- matching numpy's \texttt{corrcoef(M, rowvar=False)} and the R \texttt{betaMix} package convention.  \texttt{betaMix()} returns a Python dict whose keys (\texttt{angleMat}, \texttt{z\_j}, \texttt{m0}, \texttt{p0}, \texttt{ahat}, \texttt{bhat}, \texttt{etahat}, \texttt{ppthr}, \texttt{nodes}, \texttt{edges}, \texttt{bmax}, \texttt{N}, \texttt{cnt}, \texttt{method}) mirror R's named list.
 
 With a large number of predictors, P, the estimation may be slow, so it is recommended to set the parameter \texttt{subsamplesize} to something smaller than $P(P-1)/2$. The minimum allowed by the program is 20,000. Using anything smaller will cause betaMix to fit the model to all $P(P-1)/2$ pairs. 
 
@@ -40,13 +40,13 @@ The data folder in this repository contains four simulated datasets as csv files
 \item \verb|hub_0200_1000_09_0020.csv|	Similar to the previous item, except that $P=1000$, $N=200$ and the correlation between a central node and all other nodes in a hub is 0.9.
 \end{enumerate}
 
-We demonstrate the usage of the package with the first configuration (\texttt{i=0} in the code below).
-\showCode{python}{../code/Simulated.py}[1][12]
-Note that we transpose the data matrix, since the betaMix method treats the data as $P$ vectors in an $R^N$. We set the null posterior probability threshold to \texttt{ppr=0.01}, and we set \texttt{subsamplesize=50000} which means that in the fitting process we take a random sample of size 50000 pairwise correlations, rather than using all $P(P-1)/2$ possible pairs. We also set \texttt{ind=True} so that  the N samples are assumed to be independent when we fit the model (in this case, the null distribution is determined exactly by the sample size).
+We demonstrate the usage of the package with the last configuration (\texttt{i=3}, the random-block dataset) in the code below.
+\showCode{python}{../code/Simulated.py}[1][25]
+The CSV file has samples in rows, so no transpose is needed.  We call \texttt{betaMix(M)} with default settings; the null posterior probability threshold defaults to \texttt{ppr=0.05}.  Setting \texttt{ind=True} (the default) means the N samples are assumed independent and the null distribution is determined exactly by the sample size.
 
 \runPython{../code/Simulated.py}{sim}[cache]
 After fitting the model, we can obtain a summary of the parameter estimates and a plot of the fitted mixture distribution on top of the actual data histogram. This is done with the following code:
-\showCode{python}{../code/Simulated.py}[13][14]
+\showCode{python}{../code/Simulated.py}[27][28]
 
 The model-fit summary in this case is summarized as follows:
 \includeOutput{sim}[vbox]	
@@ -60,10 +60,10 @@ The fitted distribution plot is shown on the log-scale (Figure \ref{simFit}), wh
 \end{figure}
 
 In order to cluster the predictors we first have to generate the adjacency matrix and find graph components by running the following code
-\showCode{python}{../code/Simulated.py}[16][17]
+\showCode{python}{../code/Simulated.py}[30][31]
 
-Then, we can show the pairwise correlations as a bitmap, as in Figure \ref{CorMatEst}. 
-\showCode{python}{../code/Simulated.py}[18][18]
+Then, we can show the pairwise correlations as a bitmap, as in Figure \ref{CorMatEst}.
+\showCode{python}{../code/Simulated.py}[33][33]
 We can clearly see in Figure \ref{CorMatEst} that the algorithm detects the correct correlation structure (the yellow squares along the diagonal). The true correlation is modest ($\rho=0.3$) and $P=1000$ is quite large, and greater than $N=200$, but still, most of the true correlations are detected. In similar simulations, where either $\rho$ is greater, or $N$ is larger the true positive rate approaches 1. Furthermore, there are no yellow dots outside the diagonal of blocks, since our method yields an excellent false detection rate.
 \begin{figure}[b!]
 \centering
@@ -72,7 +72,7 @@ We can clearly see in Figure \ref{CorMatEst} that the algorithm detects the corr
 \end{figure}
 
 To visualize a certain cluster, we use the following code, which yields Figure \ref{Cluster}.
-\showCode{python}{../code/Simulated.py}[20][20]
+\showCode{python}{../code/Simulated.py}[36][36]
 
 \begin{figure}[t!]
 \centering
@@ -84,7 +84,7 @@ To visualize a certain cluster, we use the following code, which yields Figure \
 \section{Case Study -- Tomato Seeds}
 We use the tomato metabolomic data from www.metabolomicsworkbench.org website, Study ID ST000561, introduced in \cite{tomatos2017}. There are two groups -- `dry seeds' and `six-hour imbibed seeds'. Each group has $N=50$, and a total of $P=68$ metabolites. We construct the metabolite network for each group separately. The code for the control (dry seeds) group is given below. The code for the second group is similar (and available in the GitHub repository.)
 
-\showCode{python}{../code/Tomatos.py}[1][10]
+\showCode{python}{../code/Tomatos.py}[1][16]
 \runPython{../code/Tomatos.py}{sim}[cache]
 
 Figure \ref{tomatos1} shows the bitmap representation of the two networks. The metabolites in the Dry Seed group are much less connected than in the Six-hour Imbibed group.
@@ -106,6 +106,72 @@ Figure \ref{tomatos2} shows the cluster which contains the GABA metabolite in bo
 \end{figure}
 
 
+\section{Model Diagnostics}
+
+After fitting the model it is important to check the quality of the fit before interpreting the resulting network.  Three diagnostic tools are provided.
+
+\paragraph{\texttt{assessFit(res)}} produces a $2\times 2$ panel:
+\begin{enumerate}
+  \item Fitted mixture histogram with the null (dashed), non-null, and combined density, plus the significance region.
+  \item Null Q-Q plot: high-posterior-null observations versus $\mathrm{Beta}(\hat\eta, 0.5)$.
+  \item Non-null Q-Q plot: high-posterior-non-null observations versus $\mathrm{Beta}(\hat a, \hat b)$.
+  \item Model-based ROC curve, marking both the current threshold and the Youden-index optimum.
+\end{enumerate}
+It also prints a verdict: \textit{Good fit}, \textit{Acceptable fit}, or \textit{Deviations detected}.  If the null Q-Q deviates substantially, refit with \texttt{ind=False} to let the effective sample size $\nu$ be estimated from the data.
+
+\paragraph{\texttt{plotROC(res)}} plots the ROC curve and returns \texttt{dict(auc=\ldots, tau\_youden=\ldots)}.  The Youden threshold maximises TPR$-$FPR and can be passed to \texttt{getAdjMat(res, ppthr=roc[`tau\_youden'])}.
+
+\paragraph{\texttt{plotNonNullDensity(res)}} shows the kernel density of non-null $z_j$ values and reports the number of modes, which can reveal whether the non-null component is unimodal (a single correlation level) or multi-modal (several distinct association strengths in the data).
+
+
+\section{Community Detection}
+
+Once an adjacency matrix $A$ is obtained from \texttt{getAdjMat()}, three complementary strategies are available for grouping nodes into communities.
+
+\subsection{Disjoint clusters: \texttt{graphComponents}}
+
+\texttt{graphComponents(A, minCtr=2)} assigns each node to exactly one cluster based on a centrality score (degree $\times$ clustering coefficient).  Nodes with centrality below \texttt{minCtr} are left unclustered.  This is the standard choice for data without strong hub structure.
+
+\subsection{Hub-and-spoke communities: \texttt{sphericalCaps}}
+
+\texttt{sphericalCaps(A)} builds overlapping communities by repeatedly selecting the highest-degree remaining node as a hub and assigning all its direct neighbours to its community.  A node may appear in multiple communities if it is adjacent to several hubs.  Best suited to networks with clear master-regulator hubs.
+
+\subsection{Maximal-independent-set basis: \texttt{greedyBasis}}
+
+\texttt{greedyBasis(A, strategy)} finds a \emph{maximal independent set} (MIS) of the network: a set of nodes that are mutually non-adjacent (no two basis nodes are directly correlated) and maximal (every non-basis node is adjacent to at least one basis node).  After finding the basis, each node is assigned to every community whose centre it is adjacent to in the original network, giving \textbf{overlapping membership}.
+
+\begin{verbatim}
+adjM  = bx.getAdjMat(res)
+basis = bx.greedyBasis(adjM, strategy="min_degree", labels=M.columns)
+bx.summarizeBasis(basis)
+\end{verbatim}
+
+Two strategies are supported:
+\begin{description}
+  \item[\texttt{"min\_degree"} (default)] The least-connected remaining node is selected at each step --- classical greedy MIS.  This produces a \emph{non-redundant representative basis}: nodes that are as spread out in the graph as possible.  Analogous to the MRB feature-selection basis used in statistical learning.
+  \item[\texttt{"max\_degree"}] The most-connected remaining node is selected first --- hub-first MIS.  This produces fewer, larger communities and is conceptually similar to \texttt{sphericalCaps}, but with the strict guarantee that no two basis nodes are adjacent.
+\end{description}
+
+The returned DataFrame contains one row per node with columns: \texttt{isBasis}, \texttt{basisOrder}, \texttt{degree}, \texttt{cc}, \texttt{nCovered} (community size, for basis nodes), \texttt{nCommunities} (number of communities a node belongs to), and \texttt{communities} (list of basis-node indices).  Nodes with \texttt{nCommunities}~$>1$ bridge multiple communities and often correspond to metabolites or genes with broad regulatory roles.
+
+Table~\ref{tab:clustering} summarises the key properties of the three approaches.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lccc}
+\hline
+ & \textbf{graphComponents} & \textbf{sphericalCaps} & \textbf{greedyBasis} \\
+\hline
+Membership & Disjoint & Overlapping & Overlapping \\
+Basis nodes adjacent? & Yes & Yes & No (independent set) \\
+Selection criterion & Max degree$\times$cc & Max degree & Min or max degree \\
+Best for & General clusters & Hub-spoke networks & Non-redundant basis \\
+\hline
+\end{tabular}
+\caption{Comparison of the three community-detection strategies in betaMixPy.}\label{tab:clustering}
+\end{table}
+
+
 \bibliographystyle{abbrvnat}
 
 \begin{thebibliography}{99}
@@ -115,6 +181,12 @@ Peter Frankl and Hiroshi Maehara.
 \newblock Some geometric applications of the beta distribution.
 \newblock \emph{Annals of the Institute of Statistical Mathematics},
   42:\penalty0 463--474, 1990.
+
+\bibitem{BarWells2023}
+Haim Bar and Martin~T. Wells.
+\newblock On graphical models and convex geometry.
+\newblock \emph{Computational Statistics \& Data Analysis}, 187:107800, 2023.
+\newblock \doi{10.1016/j.csda.2023.107800}.
 
 \bibitem{tomatos2017}
 Rashid Kazmi, Leo Willems, Ronny Joosen, Noorullah Khan, Wilco Ligterink, and

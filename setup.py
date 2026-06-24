@@ -8,7 +8,7 @@ with open(path.join(this_directory, 'README.md')) as f:
 
 setuptools.setup(
     name="betaMixPy",
-    version="0.1.4",
+    version="0.2.0",
     author="Haim Bar",
     author_email="haim.bar@uconn.edu",
     description="A Python package to find strong correlations among P variables, each with N observations.",
