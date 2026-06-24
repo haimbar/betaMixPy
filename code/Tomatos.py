@@ -8,7 +8,7 @@ import pandas as pd
 import betaMixPy as bx
 import matplotlib.pyplot as plt
 
-# ── Dry Seeds ──────────────────────────────────────────────────────────────
+# --- Dry Seeds ---
 M0 = pd.read_csv("../data/DrySeeds.csv", index_col=0)
 print("DrySeeds shape (N, P):", M0.shape)
 
@@ -28,7 +28,7 @@ bx.plotCluster(adjM0, clst0, df0, labels=True, nodecol="#DDFF00",
                file="../figures/Gaba0.pdf")
 plt.close("all")
 
-# ── Six-Hour Imbibed ────────────────────────────────────────────────────────
+# --- Six-Hour Imbibed ---
 M1 = pd.read_csv("../data/SixHourImbibed.csv", index_col=0)
 print("SixHourImbibed shape (N, P):", M1.shape)
 
