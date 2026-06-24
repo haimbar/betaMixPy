@@ -133,6 +133,8 @@ dmypy.json
 *.aux
 *.bbl
 *.mw
+*.synctex*
 python.config
 pythondebug.txt
 serverPIDpython.txt
+serverslist.txt
