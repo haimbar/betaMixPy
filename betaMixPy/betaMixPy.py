@@ -971,7 +971,8 @@ def _plot_fitted_panel(betaMixObj, yLim=None):
     null_dens   = p0 * betadist.pdf(ccc, etahat, 0.5)
     nonnull_dens = (1.0 - p0) * betadist.pdf(ccc / bmax, ahat, bhat) / bmax
     mix_dens     = null_dens + nonnull_dens
-    peak = float(np.nanmax(mix_dens))
+    finite_mix = mix_dens[np.isfinite(mix_dens)]
+    peak = float(np.nanmax(finite_mix)) if len(finite_mix) > 0 else 1.0
     y_top = (yLim if yLim is not None else peak * 2)
     ax = plt.gca()
     ax.hist(z_j, bins=150, density=True, color="silver", edgecolor="white",
