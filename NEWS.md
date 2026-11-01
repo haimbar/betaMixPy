@@ -1,5 +1,26 @@
 # betaMixPy — Changelog
 
+## 0.2.2 (2026-11-01)
+
+### Bug fixes
+
+- `getAdjMat(nodes=...)`: neighbour selection now uses `<= ppthr`, like the
+  full-matrix path already did in 0.2.1.  Previously a node whose only
+  neighbour sat exactly at the threshold was returned without it.
+- `getAdjMat`: a pair with correlation exactly 0 is never an edge.  Such
+  values arise only from zero-variance columns (whose correlations are set to
+  0), so constant columns now stay isolated even with `ppthr=1`.
+- `betaMix`: constant columns no longer trigger numpy's "invalid value
+  encountered in divide" `RuntimeWarning`; the package's own warnings about
+  constant columns and NaN correlations are unchanged.
+
+These match the R package betaMix 0.3.4.
+
+### Tests
+
+- Added tests for the boundary neighbour in `getAdjMat(nodes=...)` and for
+  constant columns staying isolated at `ppthr=1` (71 tests).
+
 ## 0.2.1 (2026-06-23)
 
 ### Bug fixes

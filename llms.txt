@@ -162,7 +162,10 @@ bx.plotBitmapCC(adjMat, clust)
 
 Returns a P×P numpy array (or submatrix when nodes is given).  Edge (i,j) is
 set when z_ij = 1 − r_ij² ≤ ppthr (note: inclusive; the boundary pair is
-included to match the edge count reported by `betaMix()`).
+included to match the edge count reported by `betaMix()`).  The same rule
+selects neighbours when `nodes` is given.  Pairs with r_ij = 0 exactly (only
+produced by zero-variance columns) are never edges, so constant columns stay
+isolated even with `ppthr=1`.
 
 ### `assessFit(res)` — goodness-of-fit diagnostics
 

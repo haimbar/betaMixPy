@@ -118,13 +118,16 @@ def betaMix(M, tol=1e-4, calcAcc=1e-9, ppr=0.05, maxalpha=1e-4,
     if msg:
         print("Generating the z_ij statistics...")
 
-    # Correlation matrix P×P (rowvar=False: each column is a variable)
-    if method == "spearman":
-        from scipy.stats import rankdata
-        ranked = np.apply_along_axis(rankdata, 0, M)
-        corM = np.corrcoef(ranked, rowvar=False)
-    else:
-        corM = np.corrcoef(M, rowvar=False)
+    # Correlation matrix P×P (rowvar=False: each column is a variable).
+    # Constant columns divide by zero here; the resulting NaNs are reported
+    # by the warnings above/below, so numpy's own RuntimeWarning is suppressed.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        if method == "spearman":
+            from scipy.stats import rankdata
+            ranked = np.apply_along_axis(rankdata, 0, M)
+            corM = np.corrcoef(ranked, rowvar=False)
+        else:
+            corM = np.corrcoef(M, rowvar=False)
 
     if np.any(np.isnan(corM)):
         n_nans = int(np.sum(np.isnan(corM)))
@@ -277,7 +280,11 @@ def getAdjMat(res, ppthr=None, signed=False, nodes=None):
     signed -- if True, -1 for negative correlations (default False).
     nodes  -- list of node indices (0-based) for a sparse submatrix (default None).
 
-    Returns a P×P numpy array (or submatrix when nodes is given).
+    Returns a P×P numpy array (or submatrix when nodes is given).  A pair is
+    an edge when 1 - r^2 <= ppthr, so with the default threshold the edge
+    count equals res['edges'].  Pairs with r == 0 exactly (which only arise
+    from zero-variance columns) are never edges, so constant columns stay
+    isolated even when ppthr = 1.
     """
     if ppthr is None:
         ppthr = res["ppthr"]
@@ -290,14 +297,16 @@ def getAdjMat(res, ppthr=None, signed=False, nodes=None):
             raise ValueError(f"getAdjMat: 'nodes' must be in [0, {P-1}]")
         # Find all neighbors of the requested nodes
         rows = corM[nodes, :]        # shape (len(nodes), P)
-        is_edge = (1.0 - rows ** 2) < ppthr  # bool, shape (len(nodes), P)
+        is_edge = ((1.0 - rows ** 2) <= ppthr) & (rows != 0)  # bool, shape (len(nodes), P)
         nbr_mask = np.any(is_edge, axis=0)
         selected = np.sort(np.union1d(nodes, np.where(nbr_mask)[0]))
         corM = corM[np.ix_(selected, selected)]
 
     # Use <= so the boundary pair (z_j == ppthr) is included, matching the
-    # edge count reported by betaMix() which also uses <=.
-    A = (1.0 - corM ** 2) <= ppthr
+    # edge count reported by betaMix() which also uses <=.  r == 0 exactly
+    # only arises from zero-variance columns (correlation set to 0); exclude
+    # it so such nodes stay isolated even when ppthr = 1.
+    A = ((1.0 - corM ** 2) <= ppthr) & (corM != 0)
     if signed:
         A = A.astype(float)
         neg = (corM < 0) & (A > 0)

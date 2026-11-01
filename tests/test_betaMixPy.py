@@ -178,6 +178,26 @@ class TestGetAdjMat:
         with pytest.raises(ValueError, match="nodes"):
             bx.getAdjMat(dry_res, nodes=[9999])
 
+    def test_node_submatrix_includes_boundary_neighbour(self, dry_res):
+        # Threshold exactly at node 0's strongest pair: that neighbour must be
+        # selected (<=, not <), giving a 2×2 submatrix with one edge.
+        z_row = 1.0 - dry_res["angleMat"][0, 1:] ** 2
+        A = bx.getAdjMat(dry_res, ppthr=z_row.min(), nodes=[0])
+        assert A.shape == (2, 2)
+        assert A[0, 1] == 1.0
+
+    def test_constant_column_isolated_at_ppthr_one(self, tiny_M):
+        M = tiny_M.copy()
+        M[:, 2] = 0.0
+        with pytest.warns(UserWarning):
+            res = bx.betaMix(M, msg=False)
+        A = bx.getAdjMat(res, ppthr=1.0)
+        assert np.all(A[2, :] == 0) and np.all(A[:, 2] == 0)
+        # non-constant pairs are all edges at ppthr = 1
+        others = [0, 1, 3]
+        sub = A[np.ix_(others, others)]
+        assert np.all(sub[~np.eye(3, dtype=bool)] == 1.0)
+
 
 # ---------------------------------------------------------------------------
 # clusteringCoef

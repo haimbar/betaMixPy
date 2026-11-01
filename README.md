@@ -126,6 +126,8 @@ Two strategies:
 
 See [NEWS.md](NEWS.md) for the full changelog.  Highlights:
 
+- **0.2.2**: `getAdjMat(nodes=...)` uses the same inclusive threshold;
+  constant columns never get edges
 - **0.2.1**: `getAdjMat` edge count now matches `betaMix()`; fixed a
   `plotFittedBetaMix` crash; unused dependencies removed; full test suite
 
