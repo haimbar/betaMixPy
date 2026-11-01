@@ -18,7 +18,7 @@ steps in order; do not skip or defer.
 - **Return convention**: `betaMix()` returns a **dict** (not a tuple).  Keys
   mirror R's named list: `angleMat`, `z_j`, `m0`, `p0`, `ahat`, `bhat`,
   `etahat`, `ppthr`, `nodes`, `edges`, `bmax`, `N`, `cnt`, `method`.
-- **Parallel R package**: `/Users/haim/Projects/betaMix` (R).  Python and R
+- **Parallel R package**: `/Users/haim/Documents/GitHub/betaMix` (R).  Python and R
   implementations must stay semantically aligned.
 
 ---
@@ -41,7 +41,7 @@ steps in order; do not skip or defer.
 
 - Tests live in `tests/test_betaMixPy.py`.  Run with:
   ```
-  cd /Users/haim/Projects/betaMixPy && python -m pytest tests/ -v
+  cd /Users/haim/Documents/GitHub/betaMixPy && python -m pytest tests/ -v
   ```
 - After any change, run the full suite and fix all failures before proceeding.
 - For each **new function**, add at least:
@@ -140,7 +140,7 @@ Commit message format:
 
 For **every new feature** added to betaMixPy, write a brief porting plan
 describing how to implement the equivalent in the R package at
-`/Users/haim/Projects/betaMix`.  The plan should cover:
+`/Users/haim/Documents/GitHub/betaMix`.  The plan should cover:
 
 - Which R file(s) to modify (typically `R/betaMix.R` or a new `R/<feature>.R`).
 - The R equivalents of any Python-specific constructs used
@@ -183,7 +183,7 @@ betaMixPy/
 
 ## Parallel R package
 
-R source: `/Users/haim/Projects/betaMix`
+R source: `/Users/haim/Documents/GitHub/betaMix`
 
 When behaviour should match R exactly, validate against the reference values
 recorded in `code/compare_R_Python.py`.  Known acceptable discrepancies:
