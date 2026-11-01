@@ -1,14 +1,19 @@
 import os
+import re
 import setuptools
 
 from os import path
 this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, 'README.md')) as f:
+with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
+
+# Read the version from the package so it is defined in exactly one place.
+with open(path.join(this_directory, 'betaMixPy', '__init__.py'), encoding='utf-8') as f:
+    version = re.search(r'^__version__\s*=\s*"([^"]+)"', f.read(), re.M).group(1)
 
 setuptools.setup(
     name="betaMixPy",
-    version="0.2.0",
+    version=version,
     author="Haim Bar",
     author_email="haim.bar@uconn.edu",
     description="A Python package to find strong correlations among P variables, each with N observations.",

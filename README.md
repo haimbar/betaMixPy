@@ -122,9 +122,12 @@ Two strategies:
 | Selection criterion | Max degree × cc | Max degree | Min or max degree |
 | Best for | General clusters | Hub-spoke networks | Non-redundant representatives |
 
-## What's new in 0.2.0
+## What's new in 0.2.x
 
 See [NEWS.md](NEWS.md) for the full changelog.  Highlights:
+
+- **0.2.1**: `getAdjMat` edge count now matches `betaMix()`; fixed a
+  `plotFittedBetaMix` crash; unused dependencies removed; full test suite
 
 - **`greedyBasis()`** — overlapping community detection via MIS
 - **Input convention**: M is now N×P (remove any `.T` in existing code)

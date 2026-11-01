@@ -8,6 +8,16 @@
   adjacency matrix edge count matches the value reported by `betaMix()`.
   (`betaMix` sets `ppthr` as the z_j value of the boundary pair itself, so
   that pair must be included in the adjacency matrix.)
+- `plotFittedBetaMix`: no longer crashes with a `ValueError` when the fitted
+  density contains `Inf` (the null Beta(eta, 0.5) density diverges as x→1);
+  the y-axis limit is now computed from finite values only.
+
+### Packaging
+
+- `setup.py` now reads the version from `betaMixPy.__version__`, so the
+  package version is defined in one place.  `betaMixPy.__version__` is now
+  available at runtime.
+- First release of the 0.2.x series on PyPI (previous PyPI release: 0.1.4).
 
 ### Removed unused dependencies
 
